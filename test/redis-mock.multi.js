@@ -113,7 +113,7 @@ describe("multi()", function () {
       });
     });
 
-    it("should now allow to re-run the command queue", function (done) {
+    it("should not allow to re-run the command queue", function (done) {
       var multi = r.multi()
       multi.discard()
       multi.exec(function (err, value) {
