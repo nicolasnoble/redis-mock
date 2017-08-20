@@ -82,13 +82,13 @@ describe("multi()", function () {
 
     it("should run atomically with its own callbacks", function (done) {
       var multi = r.multi();
-      multi.set('key', 0, function() {
+      multi.set('key', 0, function () {
         r.set('key', 0)
       });
-      multi.incr('key', function() {
+      multi.incr('key', function () {
         r.incr('key');
       });
-      multi.exec(function() {
+      multi.exec(function () {
         r.get('key', function(err, value) {
           value.should.eql('1')
           done();
@@ -99,7 +99,7 @@ describe("multi()", function () {
 
   describe("discard()", function () {
     it("should properly discard the command queue", function (done) {
-      r.set('foo', 3, function() {
+      r.set('foo', 3, function () {
         var multi = r.multi()
         multi.incr('foo', function () {
           // Discarded queues aren't calling their callbacks.
@@ -120,6 +120,51 @@ describe("multi()", function () {
         should(value).not.be.ok();
         err.should.be.ok();
         done();
+      });
+    });
+  });
+
+  describe("watch()", function () {
+    it("should abort if a watched key has been written to", function (done) {
+      r.mset('foo', 0, 'bar', 0, function() {
+        r.watch('foo', function () {
+          r.incr('foo', function () {
+            r.multi().
+              incr('bar').
+              exec(function (err, result) {
+                should(err).not.be.ok();
+                should(result).not.be.ok();
+                r.mget('foo', 'bar', function (err, result) {
+                  should(err).not.be.ok();
+                  should.deepEqual(result, ['1', '0']);
+                  done();
+                });
+              });
+          });
+        });
+      });
+    });
+
+    it("should unwatch keys after an exec", function(done) {
+      r.mset('foo', 0, 'bar', 0, function() {
+        r.watch('foo', function () {
+          r.incr('foo', function () {
+            var multi = r.multi();
+            multi.incr('bar').exec(function (err, result) {
+              should(err).not.be.ok();
+              should(result).not.be.ok();
+              r.mget('foo', 'bar', function (err, result) {
+                should(err).not.be.ok();
+                should.deepEqual(result, ['1', '0']);
+                multi.exec(function (err, result) {
+                  should(err).not.be.ok()
+                  should.deepEqual(result, [1]);
+                  done();
+                });
+              });
+            });
+          });
+        });
       });
     });
   });
